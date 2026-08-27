@@ -78,6 +78,8 @@ function renderObject(o){
     if(o.type==='text'){
       g.classList.add('selected-text');
       addTextSelection(g,o);
+    }else if(o.type==='image'){
+      addImageResizeHandle(g,o);
     }
   }
   designLayer.appendChild(g);
@@ -101,6 +103,18 @@ function addTextSelection(g,o){
   c.dataset.action='resize';
   c.dataset.corner='top-right';
   c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r','4.5');
+  c.style.cursor='nesw-resize';
+  g.appendChild(c);
+}
+function addImageResizeHandle(g,o){
+  const pad=8;
+  const c=document.createElementNS(NS,'circle');
+  c.classList.add('image-resize-handle');
+  c.dataset.action='resize';
+  c.dataset.corner='top-right';
+  c.setAttribute('cx',o.w/2+pad);
+  c.setAttribute('cy',-o.h/2-pad);
+  c.setAttribute('r','4.5');
   c.style.cursor='nesw-resize';
   g.appendChild(c);
 }
@@ -165,7 +179,7 @@ designLayer.addEventListener('pointerdown',e=>{
   if(state.selected!==id){state.selected=id;refresh();return;}
   const o=selectedObject();if(!o)return;
   const p=svgPoint(e);
-  if(e.target.dataset.action==='resize' && o.type==='text'){
+  if(e.target.dataset.action==='resize' && (o.type==='text' || o.type==='image')){
     const center={x:o.x,y:o.y};
     state.resize={id:o.id,startDist:Math.max(1,distance(p,center)),startScale:o.scale};
     designLayer.setPointerCapture?.(e.pointerId);e.preventDefault();e.stopPropagation();return;
