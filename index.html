@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>МОНОПРИНТ — Конструктор футболок</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Montserrat:wght@400;700;800;900&family=Oswald:wght@400;600;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="https://mono-print.ru/" aria-label="На главную МОНОПРИНТ">
+      <img class="brand-logo" src="https://mono-print.ru/assets/logo-monoprint.png" alt="МОНОПРИНТ" />
+      <span class="brand-fallback">МОНОПРИНТ</span>
+    </a>
+    <div class="top-actions">
+      <button class="ghost" id="resetBtn">Сбросить</button>
+      <button class="primary" id="downloadBtn">Скачать макет</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="intro card">
+      <div class="eyebrow">ФУТБОЛКА · ПРЯМАЯ ПЕЧАТЬ / DTF</div>
+      <h1>Создайте макет и сразу посмотрите его на футболке</h1>
+      <p>Загрузите изображение, настройте размер, положение и поворот принта. Можно переключать сторону футболки и точно настраивать расположение принта на реалистичном мокапе.</p>
+    </section>
+
+    <aside class="controls card">
+      <div class="step">
+        <div class="step-title"><span>1</span> Сторона футболки</div>
+        <div class="segmented" id="sideTabs">
+          <button class="active" data-side="front">Перед</button>
+          <button data-side="back">Спина</button>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-title"><span>2</span> Цвет футболки</div>
+        <div class="swatches" id="swatches" title="Выберите цвет футболки">
+          <button class="swatch active" data-color="#f7f7f5" style="--c:#f7f7f5" aria-label="Белая" title="Белая"></button>
+          <button class="swatch" data-color="#171717" style="--c:#171717" aria-label="Чёрная" title="Чёрная"></button>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-title"><span>3</span> Добавьте дизайн</div>
+        <label class="upload">
+          <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
+          <strong>Загрузить изображение</strong>
+          <small>PNG, JPG, WEBP, SVG</small>
+        </label>
+        <button id="addTextBtn" class="secondary full">+ Добавить текст</button>
+      </div>
+
+      <div class="step disabled" id="editPanel">
+        <div class="step-title"><span>4</span> Настройте принт</div>
+        <label>Размер <b id="scaleValue">100%</b><input id="scaleRange" type="range" min="20" max="220" value="100" /></label>
+        <label>Поворот <b id="rotateValue">0°</b><input id="rotateRange" type="range" min="-180" max="180" value="0" /></label>
+        <div class="font-control" id="fontControl" hidden>
+          <label for="fontSelect">Шрифт текста</label>
+          <select id="fontSelect">
+            <option value="Montserrat">Montserrat</option>
+            <option value="Oswald">Oswald</option>
+            <option value="Bebas Neue">Bebas Neue</option>
+            <option value="Anton">Anton</option>
+            <option value="Roboto Condensed">Roboto Condensed</option>
+          </select>
+        </div>
+        <div class="text-style-control" id="textStyleControl" hidden>
+          <div class="control-caption">Цвет текста</div>
+          <div class="text-color-row" id="textColorRow">
+            <button type="button" class="text-color-swatch" data-text-color="#175cd3" style="--tc:#175cd3" aria-label="Синий" title="Синий"></button>
+            <button type="button" class="text-color-swatch" data-text-color="#16803c" style="--tc:#16803c" aria-label="Зелёный" title="Зелёный"></button>
+            <button type="button" class="text-color-swatch" data-text-color="#d92d20" style="--tc:#d92d20" aria-label="Красный" title="Красный"></button>
+            <button type="button" class="text-color-swatch" data-text-color="#7c3aed" style="--tc:#7c3aed" aria-label="Фиолетовый" title="Фиолетовый"></button>
+            <button type="button" class="text-color-swatch" data-text-color="#f4c20d" style="--tc:#f4c20d" aria-label="Жёлтый" title="Жёлтый"></button>
+          </div>
+          <label class="tracking-control">Межбуквенное расстояние <b id="trackingValue">0</b><input id="trackingRange" type="range" min="-2" max="20" step="0.5" value="0" /></label>
+        </div>
+        <div class="two-cols">
+          <button class="secondary" id="centerBtn">По центру</button>
+          <button class="danger" id="deleteBtn">Удалить</button>
+        </div>
+      </div>
+    </aside>
+
+    <section class="preview card">
+      <div class="preview-head">
+        <div>
+          <b>Предпросмотр</b>
+          <span id="sideLabel">Передняя сторона</span>
+        </div>
+        <div class="zoom-note">Перетаскивайте принт мышью</div>
+      </div>
+
+      <div class="stage" id="stage">
+        <svg id="shirtSvg" viewBox="0 0 700 834" aria-label="Мокап футболки на вешалке">
+          <defs>
+            <clipPath id="printClip">
+              <rect x="215" y="285" width="270" height="270" rx="3" />
+            </clipPath>
+          </defs>
+          <image id="shirtMockup" href="assets/tshirt-hanger-white.png" x="0" y="0" width="700" height="834" preserveAspectRatio="xMidYMid slice" />
+          <g id="designLayer" clip-path="url(#printClip)"></g>
+          <rect id="printArea" x="215" y="285" width="270" height="270" rx="3" fill="none" stroke="#ec1d73" stroke-width="0.7" stroke-dasharray="5 5" opacity=".9" pointer-events="none" />
+        </svg>
+      </div>
+
+      <div class="preview-footer">
+        <span>Максимальная зона печати: <b>40 × 40 см</b></span>
+        <span>Файл лучше загружать в PNG с прозрачным фоном</span>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="textDialog">
+    <form method="dialog" class="dialog-card">
+      <h3>Добавить текст</h3>
+      <input id="textInput" placeholder="Введите текст" maxlength="40" />
+      <div class="dialog-actions">
+        <button value="cancel" class="ghost">Отмена</button>
+        <button value="ok" class="primary" id="textOk">Добавить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
