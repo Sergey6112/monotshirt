@@ -191,34 +191,104 @@ function finishInlineEdit(commit){
   state.editing=null;const fo=$('.inline-text-editor');if(fo)fo.remove();refresh();
 }
 
-async function assetToDataUrl(src){
-  if(!src || src.startsWith('data:')) return src;
-  const response=await fetch(src);
-  if(!response.ok) throw new Error('Не удалось загрузить мокап футболки');
-  const blob=await response.blob();
-  return await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(blob)});
+function loadImageForExport(src){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.decoding='async';
+    img.onload=()=>resolve(img);
+    img.onerror=()=>reject(new Error('Не удалось загрузить изображение для экспорта'));
+    img.src=src;
+  });
+}
+function canvasToPng(canvas){
+  return new Promise((resolve,reject)=>{
+    if(canvas.toBlob){
+      canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('Не удалось сформировать PNG')),'image/png',1);
+    }else{
+      try{
+        const data=canvas.toDataURL('image/png',1);
+        const bin=atob(data.split(',')[1]), bytes=new Uint8Array(bin.length);
+        for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+        resolve(new Blob([bytes],{type:'image/png'}));
+      }catch(e){reject(e)}
+    }
+  });
+}
+async function shareOrDownloadPng(blob,filename){
+  const file=new File([blob],filename,{type:'image/png'});
+  // On iPhone/iPad, Web Share is substantially more reliable than a synthetic <a download>.
+  if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:'Макет футболки'});return}catch(e){
+      if(e && e.name==='AbortError') return;
+    }
+  }
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;a.rel='noopener';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),5000);
 }
 async function exportSvg(){
   finishInlineEdit(true);
-  const btn=$('#downloadBtn');const oldText=btn.textContent;btn.disabled=true;btn.textContent='Подготовка...';
+  const btn=$('#downloadBtn'),oldText=btn.textContent;
+  btn.disabled=true;btn.textContent='Подготовка...';
   try{
-    const clone=$('#shirtSvg').cloneNode(true);
-    clone.querySelector('#printArea')?.remove();clone.querySelector('#areaText')?.remove();
-    clone.querySelectorAll('.text-selection-box,.text-resize-handle,.inline-text-editor').forEach(x=>x.remove());
-    clone.querySelectorAll('#designLayer .text-object').forEach(t=>t.setAttribute('opacity','1'));
-    const mockup=clone.querySelector('#shirtMockup');
-    if(mockup){const href=mockup.getAttribute('href')||mockup.getAttributeNS('http://www.w3.org/1999/xlink','href');mockup.setAttribute('href',await assetToDataUrl(href));}
-    clone.setAttribute('width','1400');clone.setAttribute('height','1668');
-    const xml=new XMLSerializer().serializeToString(clone);
-    const blob=new Blob([xml],{type:'image/svg+xml;charset=utf-8'});const url=URL.createObjectURL(blob);const img=new Image();
-    await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url});
-    const c=document.createElement('canvas');c.width=1400;c.height=1668;const ctx=c.getContext('2d');
-    ctx.drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);
-    const png=await new Promise(resolve=>c.toBlob(resolve,'image/png',1));
-    if(!png) throw new Error('Не удалось сформировать PNG');
-    const a=document.createElement('a');a.href=URL.createObjectURL(png);a.download=`monoprint-tshirt-mockup-${state.shirt==='#171717'?'black':'white'}-${state.side}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  }catch(err){console.error(err);alert('Не удалось скачать мокап. Запустите конструктор через localhost и попробуйте ещё раз.');}
-  finally{btn.disabled=false;btn.textContent=oldText;}
+    // Build the PNG directly on canvas. This avoids the SVG -> Blob -> Image path
+    // that produces transparent/empty images in a number of mobile browsers.
+    const svg=$('#shirtSvg');
+    const vb=svg.viewBox.baseVal;
+    const W=1400,H=Math.round(W*(vb.height/vb.width));
+    const sx=W/vb.width, sy=H/vb.height;
+    const canvas=document.createElement('canvas');
+    canvas.width=W;canvas.height=H;
+    const ctx=canvas.getContext('2d',{alpha:false});
+    ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
+
+    const mockup=$('#shirtMockup');
+    const mockHref=mockup.getAttribute('href')||mockup.getAttributeNS('http://www.w3.org/1999/xlink','href');
+    const shirtImg=await loadImageForExport(mockHref);
+    const mx=+(mockup.getAttribute('x')||0), my=+(mockup.getAttribute('y')||0);
+    const mw=+(mockup.getAttribute('width')||vb.width), mh=+(mockup.getAttribute('height')||vb.height);
+    ctx.drawImage(shirtImg,mx*sx,my*sy,mw*sx,mh*sy);
+
+    // Draw current design objects separately, so mobile browsers never need to rasterize
+    // the complete SVG tree. Selection frames and editing controls are therefore omitted.
+    for(const o of current()){
+      ctx.save();
+      ctx.translate(o.x*sx,o.y*sy);
+      ctx.rotate((o.rotate||0)*Math.PI/180);
+      ctx.scale((o.scale||1)*sx,(o.scale||1)*sy);
+      if(o.type==='image'){
+        const designImg=await loadImageForExport(o.src);
+        ctx.drawImage(designImg,-o.w/2,-o.h/2,o.w,o.h);
+      }else if(o.type==='text'){
+        const family=o.fontFamily||'Montserrat, Arial, sans-serif';
+        ctx.font=`${o.fontSize}px ${family}`;
+        ctx.fillStyle=o.color||'#111111';
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        const spacing=+(o.letterSpacing||0);
+        if(!spacing){
+          ctx.fillText(o.text||'',0,0);
+        }else{
+          const chars=Array.from(o.text||'');
+          const widths=chars.map(ch=>ctx.measureText(ch).width);
+          const total=widths.reduce((a,b)=>a+b,0)+Math.max(0,chars.length-1)*spacing;
+          let x=-total/2;
+          chars.forEach((ch,i)=>{ctx.textAlign='left';ctx.fillText(ch,x,0);x+=widths[i]+spacing});
+        }
+      }
+      ctx.restore();
+    }
+
+    const png=await canvasToPng(canvas);
+    const filename=`monoprint-tshirt-mockup-${state.shirt==='#171717'?'black':'white'}-${state.side}.png`;
+    await shareOrDownloadPng(png,filename);
+  }catch(err){
+    console.error(err);
+    alert('Не удалось сохранить мокап. Обновите страницу и попробуйте ещё раз.');
+  }finally{
+    btn.disabled=false;btn.textContent=oldText;
+  }
 }
 $('#downloadBtn').onclick=exportSvg;
 refresh();
