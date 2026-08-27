@@ -251,6 +251,14 @@ async function exportSvg(){
     const mw=+(mockup.getAttribute('width')||vb.width), mh=+(mockup.getAttribute('height')||vb.height);
     ctx.drawImage(shirtImg,mx*sx,my*sy,mw*sx,mh*sy);
 
+    // Clip the exported artwork strictly to the 40×40 cm print area.
+    // Objects may be moved/scaled freely in the editor, but pixels outside this area
+    // must never appear on the downloaded mockup.
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(printArea.x*sx,printArea.y*sy,printArea.w*sx,printArea.h*sy);
+    ctx.clip();
+
     // Draw current design objects separately, so mobile browsers never need to rasterize
     // the complete SVG tree. Selection frames and editing controls are therefore omitted.
     for(const o of current()){
@@ -279,6 +287,7 @@ async function exportSvg(){
       }
       ctx.restore();
     }
+    ctx.restore(); // end print-area clipping
 
     const png=await canvasToPng(canvas);
     const filename=`monoprint-tshirt-mockup-${state.shirt==='#171717'?'black':'white'}-${state.side}.png`;
