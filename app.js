@@ -7,12 +7,23 @@ const printArea={x:215,y:285,w:270,h:270};
 function uid(){return Math.random().toString(36).slice(2,10)}
 function current(){return state.objects[state.side]}
 function selectedObject(){return current().find(o=>o.id===state.selected)}
+function resolvedTextColor(o){
+  if(o && o.colorMode==='auto') return state.shirt==='#171717' ? '#ffffff' : '#111111';
+  return (o && o.color) || '#111111';
+}
 function refresh(){
   const isBlack=state.shirt==='#171717';
   const mockup = isBlack
     ? (state.side==='front' ? 'assets/tshirt-hanger-black.png' : 'assets/tshirt-hanger-black-back.png')
     : (state.side==='front' ? 'assets/tshirt-hanger-white.png' : 'assets/tshirt-hanger-white-back.png');
   $('#shirtMockup').setAttribute('href', mockup);
+  const adaptiveSwatch=document.querySelector('.auto-text-color');
+  if(adaptiveSwatch){
+    const adaptive=state.shirt==='#171717' ? '#ffffff' : '#111111';
+    adaptiveSwatch.style.setProperty('--tc',adaptive);
+    adaptiveSwatch.setAttribute('aria-label',state.shirt==='#171717'?'Белый':'Чёрный');
+    adaptiveSwatch.title=state.shirt==='#171717'?'Белый':'Чёрный';
+  }
   designLayer.innerHTML='';
   current().forEach(o=>renderObject(o));
   const sel=selectedObject();
@@ -29,8 +40,18 @@ function refresh(){
     $('#rotateValue').textContent=Math.round(sel.rotate)+'°';
     if(sel.type==='text'){
       $('#fontSelect').value=sel.fontFamily || 'Montserrat';
-      const color=sel.color || '#111111';
-      document.querySelectorAll('.text-color-swatch').forEach(b=>b.classList.toggle('active',b.dataset.textColor.toLowerCase()===color.toLowerCase()));
+      const autoSwatch=document.querySelector('.auto-text-color');
+      if(autoSwatch){
+        const adaptive=state.shirt==='#171717' ? '#ffffff' : '#111111';
+        autoSwatch.style.setProperty('--tc',adaptive);
+        autoSwatch.setAttribute('aria-label',state.shirt==='#171717'?'Белый':'Чёрный');
+        autoSwatch.title=state.shirt==='#171717'?'Белый':'Чёрный';
+      }
+      const color=resolvedTextColor(sel);
+      document.querySelectorAll('.text-color-swatch').forEach(b=>{
+        const active=b.dataset.textColor==='auto' ? sel.colorMode==='auto' : (sel.colorMode!=='auto' && b.dataset.textColor.toLowerCase()===color.toLowerCase());
+        b.classList.toggle('active',active);
+      });
       $('#trackingRange').value=sel.letterSpacing ?? 0;
       $('#trackingValue').textContent=formatTracking(sel.letterSpacing ?? 0);
     }
@@ -49,7 +70,7 @@ function renderObject(o){
   }else{
     el=document.createElementNS(NS,'text');
     el.classList.add('text-object');
-    el.setAttribute('text-anchor','middle');el.setAttribute('dominant-baseline','middle');el.setAttribute('font-family',`${o.fontFamily || 'Montserrat'}, sans-serif`);el.setAttribute('font-weight','800');el.setAttribute('font-size',o.fontSize);el.setAttribute('fill',o.color || '#111111');el.setAttribute('letter-spacing',o.letterSpacing ?? 0);el.textContent=o.text;
+    el.setAttribute('text-anchor','middle');el.setAttribute('dominant-baseline','middle');el.setAttribute('font-family',`${o.fontFamily || 'Montserrat'}, sans-serif`);el.setAttribute('font-weight','800');el.setAttribute('font-size',o.fontSize);el.setAttribute('fill',resolvedTextColor(o));el.setAttribute('letter-spacing',o.letterSpacing ?? 0);el.textContent=o.text;
   }
   g.appendChild(el);
   if(o.id===state.selected){
@@ -94,9 +115,27 @@ $('#sideTabs').addEventListener('click',e=>{if(!e.target.dataset.side)return;fin
 $('#swatches').addEventListener('click',e=>{const b=e.target.closest('.swatch:not([disabled])');if(!b)return;state.shirt=b.dataset.color;document.querySelectorAll('.swatch').forEach(x=>x.classList.toggle('active',x===b));refresh()});
 $('#scaleRange').oninput=e=>{const o=selectedObject();if(!o)return;o.scale=e.target.value/100;$('#scaleValue').textContent=e.target.value+'%';refresh()};
 $('#rotateRange').oninput=e=>{const o=selectedObject();if(!o)return;o.rotate=+e.target.value;$('#rotateValue').textContent=e.target.value+'°';refresh()};
+$('#rotateValue').addEventListener('click',()=>{
+  const o=selectedObject();if(!o)return;
+  const entered=prompt('Введите угол поворота от -180° до 180°:',Math.round(o.rotate||0));
+  if(entered===null)return;
+  const normalized=String(entered).replace(',','.').replace('°','').trim();
+  let angle=Number(normalized);
+  if(!Number.isFinite(angle))return;
+  angle=Math.max(-180,Math.min(180,angle));
+  o.rotate=angle;
+  $('#rotateRange').value=angle;
+  $('#rotateValue').textContent=(Number.isInteger(angle)?angle:angle.toFixed(1))+'°';
+  refresh();
+});
 $('#fontSelect').addEventListener('change',e=>{const o=selectedObject();if(!o || o.type!=='text')return;o.fontFamily=e.target.value;refresh()});
 function formatTracking(v){const n=Number(v)||0;return (n>0?'+':'')+n+' px'}
-function setTextColor(color){const o=selectedObject();if(!o || o.type!=='text')return;o.color=color;refresh()}
+function setTextColor(color){
+  const o=selectedObject();if(!o || o.type!=='text')return;
+  if(color==='auto'){o.colorMode='auto';o.color=resolvedTextColor(o)}
+  else{o.colorMode='fixed';o.color=color}
+  refresh();
+}
 $('#textColorRow').addEventListener('click',e=>{const b=e.target.closest('.text-color-swatch');if(!b)return;setTextColor(b.dataset.textColor)});
 $('#trackingRange').addEventListener('input',e=>{const o=selectedObject();if(!o || o.type!=='text')return;o.letterSpacing=Number(e.target.value);$('#trackingValue').textContent=formatTracking(o.letterSpacing);refresh()});
 $('#centerBtn').onclick=()=>{const o=selectedObject();if(!o)return;o.x=350;o.y=420;refresh()};
@@ -105,7 +144,7 @@ $('#resetBtn').onclick=()=>{if(confirm('Сбросить все элементы
 
 const dlg=$('#textDialog');
 $('#addTextBtn').onclick=()=>{dlg.showModal();setTimeout(()=>$('#textInput').focus(),50)};
-$('#textOk').onclick=e=>{const text=$('#textInput').value.trim();if(!text){e.preventDefault();return}const o={id:uid(),type:'text',text,fontSize:34,fontFamily:'Montserrat',color:state.shirt==='#171717'?'#ffffff':'#111111',letterSpacing:0,x:350,y:415,scale:1,rotate:0};current().push(o);state.selected=o.id;$('#textInput').value='';refresh()};
+$('#textOk').onclick=e=>{const text=$('#textInput').value.trim();if(!text){e.preventDefault();return}const o={id:uid(),type:'text',text,fontSize:34,fontFamily:'Montserrat',color:state.shirt==='#171717'?'#ffffff':'#111111',colorMode:'auto',letterSpacing:0,x:350,y:415,scale:1,rotate:0};current().push(o);state.selected=o.id;$('#textInput').value='';refresh()};
 
 function svgPoint(evt){const svg=$('#shirtSvg'),pt=svg.createSVGPoint();pt.x=evt.clientX;pt.y=evt.clientY;return pt.matrixTransform(svg.getScreenCTM().inverse())}
 function distance(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
@@ -172,7 +211,7 @@ function startInlineEdit(id,restoreFocus){
   input.className='inline-text-input';input.value=o.text;input.maxLength=40;
   input.style.fontFamily=`${o.fontFamily || 'Montserrat'}, sans-serif`;
   input.style.fontWeight='800';
-  input.style.color=o.color || '#111111';
+  input.style.color=resolvedTextColor(o);
   input.style.letterSpacing=(o.letterSpacing||0)+'px';
   input.addEventListener('input',()=>{o.text=input.value;});
   input.addEventListener('keydown',ev=>{
@@ -272,7 +311,7 @@ async function exportSvg(){
       }else if(o.type==='text'){
         const family=o.fontFamily||'Montserrat, Arial, sans-serif';
         ctx.font=`${o.fontSize}px ${family}`;
-        ctx.fillStyle=o.color||'#111111';
+        ctx.fillStyle=resolvedTextColor(o);
         ctx.textAlign='center';ctx.textBaseline='middle';
         const spacing=+(o.letterSpacing||0);
         if(!spacing){

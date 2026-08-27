@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>МОНОПРИНТ — Конструктор футболок</title>
-  <link rel="icon" type="image/png" href="assets/favicon-tshirt.png" />
-  <link rel="shortcut icon" href="favicon.ico" />
+  <link rel="icon" type="image/png" href="assets/favicon-tshirt.png?v=2" />
+  <link rel="shortcut icon" href="favicon.ico?v=2" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Montserrat:wght@400;700;800;900&family=Oswald:wght@400;600;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
@@ -60,7 +60,7 @@
       <div class="step disabled" id="editPanel">
         <div class="step-title"><span>4</span> Настройте принт</div>
         <label>Размер <b id="scaleValue">100%</b><input id="scaleRange" type="range" min="20" max="220" value="100" /></label>
-        <label>Поворот <b id="rotateValue">0°</b><input id="rotateRange" type="range" min="-180" max="180" value="0" /></label>
+        <label>Поворот <button type="button" id="rotateValue" class="rotate-value-button" title="Задать угол вручную">0°</button><input id="rotateRange" type="range" min="-180" max="180" value="0" /></label>
         <div class="font-control" id="fontControl" hidden>
           <label for="fontSelect">Шрифт текста</label>
           <select id="fontSelect">
@@ -74,6 +74,7 @@
         <div class="text-style-control" id="textStyleControl" hidden>
           <div class="control-caption">Цвет текста</div>
           <div class="text-color-row" id="textColorRow">
+            <button type="button" class="text-color-swatch auto-text-color" data-text-color="auto" style="--tc:#111111" aria-label="Чёрный" title="Чёрный"></button>
             <button type="button" class="text-color-swatch" data-text-color="#175cd3" style="--tc:#175cd3" aria-label="Синий" title="Синий"></button>
             <button type="button" class="text-color-swatch" data-text-color="#16803c" style="--tc:#16803c" aria-label="Зелёный" title="Зелёный"></button>
             <button type="button" class="text-color-swatch" data-text-color="#d92d20" style="--tc:#d92d20" aria-label="Красный" title="Красный"></button>
