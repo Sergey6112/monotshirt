@@ -295,8 +295,45 @@ function loadImageForExport(src){
     img.src=src;
   });
 }
-function downloadCanvasPng(canvas,filename){
-  // Direct data-URL download is the most reliable option in desktop Chromium/Yandex.
+function canvasToBlob(canvas){
+  return new Promise((resolve,reject)=>{
+    if(canvas.toBlob){
+      canvas.toBlob(blob=>blob ? resolve(blob) : reject(new Error('Не удалось создать PNG')),'image/png',1);
+      return;
+    }
+    try{
+      const data=canvas.toDataURL('image/png');
+      const bin=atob(data.split(',')[1]);
+      const bytes=new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+      resolve(new Blob([bytes],{type:'image/png'}));
+    }catch(err){reject(err)}
+  });
+}
+function isMobileDevice(){
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints>1 && window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+}
+async function saveCanvasPng(canvas,filename){
+  // On phones/tablets use the system Share sheet.
+  // iPhone/iPad: choose "Save Image" / "Сохранить изображение".
+  // Android: the image can be sent to Photos/Gallery or another compatible app.
+  if(isMobileDevice() && navigator.share){
+    try{
+      const blob=await canvasToBlob(canvas);
+      const file=new File([blob],filename,{type:'image/png'});
+      if(!navigator.canShare || navigator.canShare({files:[file]})){
+        await navigator.share({files:[file],title:'Макет МОНОПРИНТ'});
+        return;
+      }
+    }catch(err){
+      // User cancelling the Share sheet is not an export failure.
+      if(err && err.name==='AbortError') return;
+      console.warn('Mobile share unavailable, using download fallback',err);
+    }
+  }
+
+  // Desktop / unsupported mobile browser fallback.
   const data=canvas.toDataURL('image/png');
   const a=document.createElement('a');
   a.href=data;
@@ -396,7 +433,7 @@ async function exportSvg(){
     }
 
     const filename=`monoprint-${state.product}-mockup-${state.shirt==='#171717'?'black':'white'}-${state.side}.png`;
-    downloadCanvasPng(canvas,filename);
+    await saveCanvasPng(canvas,filename);
   }catch(err){
     console.error(err);
     alert('Не удалось сохранить мокап: '+(err && err.message ? err.message : err));
