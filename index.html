@@ -32,7 +32,24 @@
 
     <aside class="controls card">
       <div class="step">
-        <div class="step-title"><span>1</span> Сторона футболки</div>
+        <div class="step-title"><span>1</span> Вид изделия</div>
+        <div class="product-tabs" id="productTabs">
+          <button class="product-tab active" data-product="tshirt" title="Футболка" aria-label="Футболка">
+            <img class="product-icon-img" src="assets/product-tshirt.png" alt="" />
+            <small>Футболка</small>
+          </button>
+          <button class="product-tab" data-product="hoodie" title="Худи" aria-label="Худи">
+            <img class="product-icon-img" src="assets/product-hoodie.png" alt="" />
+            <small>Худи</small>
+          </button>
+          <button class="product-tab" data-product="shopper" title="Шоппер" aria-label="Шоппер">
+            <img class="product-icon-img" src="assets/product-shopper.png" alt="" />
+            <small>Шоппер</small>
+          </button>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-title"><span>2</span> <span id="sideStepTitle">Сторона футболки</span></div>
         <div class="segmented" id="sideTabs">
           <button class="active" data-side="front">Перед</button>
           <button data-side="back">Спина</button>
@@ -40,7 +57,7 @@
       </div>
 
       <div class="step">
-        <div class="step-title"><span>2</span> Цвет футболки</div>
+        <div class="step-title"><span>3</span> <span id="colorStepTitle">Цвет футболки</span></div>
         <div class="swatches" id="swatches" title="Выберите цвет футболки">
           <button class="swatch active" data-color="#f7f7f5" style="--c:#f7f7f5" aria-label="Белая" title="Белая"></button>
           <button class="swatch" data-color="#171717" style="--c:#171717" aria-label="Чёрная" title="Чёрная"></button>
@@ -48,7 +65,7 @@
       </div>
 
       <div class="step">
-        <div class="step-title"><span>3</span> Добавьте дизайн</div>
+        <div class="step-title"><span>4</span> Добавьте дизайн</div>
         <label class="upload">
           <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
           <strong>Загрузить изображение</strong>
@@ -58,7 +75,7 @@
       </div>
 
       <div class="step disabled" id="editPanel">
-        <div class="step-title"><span>4</span> Настройте принт</div>
+        <div class="step-title"><span>5</span> Настройте принт</div>
         <label>Размер <b id="scaleValue">100%</b><input id="scaleRange" type="range" min="20" max="220" value="100" /></label>
         <label>Поворот <button type="button" id="rotateValue" class="rotate-value-button" title="Задать угол вручную">0°</button><input id="rotateRange" type="range" min="-180" max="180" value="0" /></label>
         <div class="font-control" id="fontControl" hidden>
@@ -108,6 +125,7 @@
           </defs>
           <image id="shirtMockup" href="assets/tshirt-hanger-white.png" x="0" y="0" width="700" height="834" preserveAspectRatio="xMidYMid slice" />
           <g id="designLayer" clip-path="url(#printClip)"></g>
+          <image id="hoodieStringsOverlay" href="assets/hoodie-strings-white.png" x="270" y="215" width="160" height="225" preserveAspectRatio="xMidYMid meet" pointer-events="none" style="display:none" />
           <rect id="printArea" x="215" y="285" width="270" height="270" rx="3" fill="none" stroke="#ec1d73" stroke-width="0.7" stroke-dasharray="5 5" opacity=".9" pointer-events="none" />
         </svg>
       </div>

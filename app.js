@@ -1,11 +1,27 @@
 const NS='http://www.w3.org/2000/svg';
-const state={side:'front',shirt:'#f7f7f5',selected:null,objects:{front:[],back:[]},drag:null,resize:null,editing:null};
+const state={product:'tshirt',side:'front',shirt:'#f7f7f5',selected:null,objects:{tshirt:{front:[],back:[]},hoodie:{front:[],back:[]},shopper:{front:[],back:[]}},drag:null,resize:null,editing:null};
 const $=s=>document.querySelector(s);
 const designLayer=$('#designLayer'), editPanel=$('#editPanel');
 const printArea={x:215,y:285,w:270,h:270};
+const productPrintAreas={
+  tshirt:{x:215,y:285,w:270,h:270},
+  hoodie:{x:215,y:277,w:270,h:270},
+  shopper:{x:230,y:438,w:240,h:240}
+};
+function applyPrintArea(){
+  const a=productPrintAreas[state.product]||productPrintAreas.tshirt;
+  Object.assign(printArea,a);
+  const clipRect=document.querySelector('#printClip rect');
+  const border=document.querySelector('#printArea');
+  [clipRect,border].forEach(el=>{
+    if(!el)return;
+    el.setAttribute('x',a.x);el.setAttribute('y',a.y);
+    el.setAttribute('width',a.w);el.setAttribute('height',a.h);
+  });
+}
 
 function uid(){return Math.random().toString(36).slice(2,10)}
-function current(){return state.objects[state.side]}
+function current(){return state.objects[state.product][state.side]}
 function selectedObject(){return current().find(o=>o.id===state.selected)}
 function resolvedTextColor(o){
   if(o && o.colorMode==='auto') return state.shirt==='#171717' ? '#ffffff' : '#111111';
@@ -13,10 +29,27 @@ function resolvedTextColor(o){
 }
 function refresh(){
   const isBlack=state.shirt==='#171717';
-  const mockup = isBlack
-    ? (state.side==='front' ? 'assets/tshirt-hanger-black.png' : 'assets/tshirt-hanger-black-back.png')
-    : (state.side==='front' ? 'assets/tshirt-hanger-white.png' : 'assets/tshirt-hanger-white-back.png');
+  let mockup;
+  if(state.product==='hoodie'){
+    mockup=isBlack
+      ? (state.side==='front' ? 'assets/hoodie-black-front.png' : 'assets/hoodie-black-back.png')
+      : (state.side==='front' ? 'assets/hoodie-white-front.png' : 'assets/hoodie-white-back.png');
+  }else if(state.product==='shopper'){
+    mockup=isBlack ? 'assets/shopper-black.png' : 'assets/shopper-white.png';
+  }else{
+    mockup=isBlack
+      ? (state.side==='front' ? 'assets/tshirt-hanger-black.png' : 'assets/tshirt-hanger-black-back.png')
+      : (state.side==='front' ? 'assets/tshirt-hanger-white.png' : 'assets/tshirt-hanger-white-back.png');
+  }
   $('#shirtMockup').setAttribute('href', mockup);
+  $('#shirtMockup').setAttribute('preserveAspectRatio',state.product==='shopper'?'xMidYMid meet':'xMidYMid slice');
+  applyPrintArea();
+  const strings=$('#hoodieStringsOverlay');
+  if(strings){
+    const show=state.product==='hoodie' && state.side==='front';
+    strings.style.display=show?'':'none';
+    strings.setAttribute('href',isBlack?'assets/hoodie-strings-black.png':'assets/hoodie-strings-white.png');
+  }
   const adaptiveSwatch=document.querySelector('.auto-text-color');
   if(adaptiveSwatch){
     const adaptive=state.shirt==='#171717' ? '#ffffff' : '#111111';
@@ -125,6 +158,15 @@ function addImage(src,img){
 }
 $('#fileInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>addImage(reader.result,img);img.src=reader.result};reader.readAsDataURL(f);e.target.value=''});
 
+const productNames={tshirt:'футболки',hoodie:'худи',shopper:'шоппера'};
+$('#productTabs').addEventListener('click',e=>{
+  const b=e.target.closest('.product-tab');if(!b)return;
+  finishInlineEdit(true);state.product=b.dataset.product;state.selected=null;
+  document.querySelectorAll('.product-tab').forEach(x=>x.classList.toggle('active',x===b));
+  $('#sideStepTitle').textContent='Сторона '+productNames[state.product];
+  $('#colorStepTitle').textContent='Цвет '+productNames[state.product];
+  refresh();
+});
 $('#sideTabs').addEventListener('click',e=>{if(!e.target.dataset.side)return;finishInlineEdit(true);state.side=e.target.dataset.side;state.selected=null;document.querySelectorAll('#sideTabs button').forEach(b=>b.classList.toggle('active',b===e.target));$('#sideLabel').textContent=state.side==='front'?'Передняя сторона':'Задняя сторона';refresh()});
 $('#swatches').addEventListener('click',e=>{const b=e.target.closest('.swatch:not([disabled])');if(!b)return;state.shirt=b.dataset.color;document.querySelectorAll('.swatch').forEach(x=>x.classList.toggle('active',x===b));refresh()});
 $('#scaleRange').oninput=e=>{const o=selectedObject();if(!o)return;o.scale=e.target.value/100;$('#scaleValue').textContent=e.target.value+'%';refresh()};
@@ -154,7 +196,7 @@ $('#textColorRow').addEventListener('click',e=>{const b=e.target.closest('.text-
 $('#trackingRange').addEventListener('input',e=>{const o=selectedObject();if(!o || o.type!=='text')return;o.letterSpacing=Number(e.target.value);$('#trackingValue').textContent=formatTracking(o.letterSpacing);refresh()});
 $('#centerBtn').onclick=()=>{const o=selectedObject();if(!o)return;o.x=350;o.y=420;refresh()};
 $('#deleteBtn').onclick=()=>{finishInlineEdit(true);state.objects[state.side]=current().filter(x=>x.id!==state.selected);state.selected=null;refresh()};
-$('#resetBtn').onclick=()=>{if(confirm('Сбросить все элементы макета?')){finishInlineEdit(true);state.objects={front:[],back:[]};state.selected=null;refresh()}};
+$('#resetBtn').onclick=()=>{if(confirm('Сбросить все элементы макета?')){finishInlineEdit(true);state.objects={tshirt:{front:[],back:[]},hoodie:{front:[],back:[]},shopper:{front:[],back:[]}};state.selected=null;refresh()}};
 
 const dlg=$('#textDialog');
 $('#addTextBtn').onclick=()=>{dlg.showModal();setTimeout(()=>$('#textInput').focus(),50)};
@@ -297,7 +339,15 @@ async function exportSvg(){
     const ctx=canvas.getContext('2d',{alpha:false});
     ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
 
-    const mockup=$('#shirtMockup');
+    const dark=state.shirt==='#171717';
+  let mockup;
+  if(state.product==='hoodie'){
+    mockup=dark ? (state.side==='front'?'assets/hoodie-black-front.png':'assets/hoodie-black-back.png') : (state.side==='front'?'assets/hoodie-white-front.png':'assets/hoodie-white-back.png');
+  }else if(state.product==='shopper'){
+    mockup=dark?'assets/shopper-black.png':'assets/shopper-white.png';
+  }else{
+    mockup=dark ? (state.side==='front'?'assets/tshirt-hanger-black.png':'assets/tshirt-hanger-black-back.png') : (state.side==='front'?'assets/tshirt-hanger-white.png':'assets/tshirt-hanger-white-back.png');
+  }
     const mockHref=mockup.getAttribute('href')||mockup.getAttributeNS('http://www.w3.org/1999/xlink','href');
     const shirtImg=await loadImageForExport(mockHref);
     const mx=+(mockup.getAttribute('x')||0), my=+(mockup.getAttribute('y')||0);
@@ -342,8 +392,14 @@ async function exportSvg(){
     }
     ctx.restore(); // end print-area clipping
 
+    // Real hoodie drawstring PNG is drawn above the user's design.
+    if(state.product==='hoodie' && state.side==='front'){
+      const stringsImg=await loadImageForExport(state.shirt==='#171717'?'assets/hoodie-strings-black.png':'assets/hoodie-strings-white.png');
+      ctx.drawImage(stringsImg,270*sx,215*sy,160*sx,225*sy);
+    }
+
     const png=await canvasToPng(canvas);
-    const filename=`monoprint-tshirt-mockup-${state.shirt==='#171717'?'black':'white'}-${state.side}.png`;
+    const filename=`monoprint-${state.product}-mockup-${state.shirt==='#171717'?'black':'white'}-${state.side}.png`;
     await shareOrDownloadPng(png,filename);
   }catch(err){
     console.error(err);
