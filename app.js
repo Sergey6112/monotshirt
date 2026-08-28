@@ -295,33 +295,16 @@ function loadImageForExport(src){
     img.src=src;
   });
 }
-function canvasToPng(canvas){
-  return new Promise((resolve,reject)=>{
-    if(canvas.toBlob){
-      canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('Не удалось сформировать PNG')),'image/png',1);
-    }else{
-      try{
-        const data=canvas.toDataURL('image/png',1);
-        const bin=atob(data.split(',')[1]), bytes=new Uint8Array(bin.length);
-        for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
-        resolve(new Blob([bytes],{type:'image/png'}));
-      }catch(e){reject(e)}
-    }
-  });
-}
-async function shareOrDownloadPng(blob,filename){
-  const file=new File([blob],filename,{type:'image/png'});
-  // On iPhone/iPad, Web Share is substantially more reliable than a synthetic <a download>.
-  if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
-    try{await navigator.share({files:[file],title:'Макет футболки'});return}catch(e){
-      if(e && e.name==='AbortError') return;
-    }
-  }
-  const url=URL.createObjectURL(blob);
+function downloadCanvasPng(canvas,filename){
+  // Direct data-URL download is the most reliable option in desktop Chromium/Yandex.
+  const data=canvas.toDataURL('image/png');
   const a=document.createElement('a');
-  a.href=url;a.download=filename;a.rel='noopener';
-  document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),5000);
+  a.href=data;
+  a.download=filename;
+  a.style.display='none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 async function exportSvg(){
   finishInlineEdit(true);
@@ -339,20 +322,34 @@ async function exportSvg(){
     const ctx=canvas.getContext('2d',{alpha:false});
     ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
 
-    const dark=state.shirt==='#171717';
-  let mockup;
-  if(state.product==='hoodie'){
-    mockup=dark ? (state.side==='front'?'assets/hoodie-black-front.png':'assets/hoodie-black-back.png') : (state.side==='front'?'assets/hoodie-white-front.png':'assets/hoodie-white-back.png');
-  }else if(state.product==='shopper'){
-    mockup=dark?'assets/shopper-black.png':'assets/shopper-white.png';
-  }else{
-    mockup=dark ? (state.side==='front'?'assets/tshirt-hanger-black.png':'assets/tshirt-hanger-black-back.png') : (state.side==='front'?'assets/tshirt-hanger-white.png':'assets/tshirt-hanger-white-back.png');
-  }
-    const mockHref=mockup.getAttribute('href')||mockup.getAttributeNS('http://www.w3.org/1999/xlink','href');
+    const mockEl=$('#shirtMockup');
+    const mockHref=mockEl.getAttribute('href')||mockEl.getAttributeNS('http://www.w3.org/1999/xlink','href');
     const shirtImg=await loadImageForExport(mockHref);
-    const mx=+(mockup.getAttribute('x')||0), my=+(mockup.getAttribute('y')||0);
-    const mw=+(mockup.getAttribute('width')||vb.width), mh=+(mockup.getAttribute('height')||vb.height);
-    ctx.drawImage(shirtImg,mx*sx,my*sy,mw*sx,mh*sy);
+    const mx=+(mockEl.getAttribute('x')||0), my=+(mockEl.getAttribute('y')||0);
+    const mw=+(mockEl.getAttribute('width')||vb.width), mh=+(mockEl.getAttribute('height')||vb.height);
+
+    // Match the SVG preview: shoppers use "meet" (fit inside), garments use "slice".
+    const preserve=mockEl.getAttribute('preserveAspectRatio')||'xMidYMid slice';
+    const srcRatio=shirtImg.naturalWidth/shirtImg.naturalHeight;
+    const boxRatio=mw/mh;
+    if(preserve.includes('meet')){
+      let dw=mw,dh=mh,dx=mx,dy=my;
+      if(srcRatio>boxRatio){
+        dh=mw/srcRatio;dy=my+(mh-dh)/2;
+      }else{
+        dw=mh*srcRatio;dx=mx+(mw-dw)/2;
+      }
+      ctx.drawImage(shirtImg,dx*sx,dy*sy,dw*sx,dh*sy);
+    }else{
+      // Center-crop to fill, matching xMidYMid slice.
+      let sw=shirtImg.naturalWidth,sh=shirtImg.naturalHeight,sx0=0,sy0=0;
+      if(srcRatio>boxRatio){
+        sw=sh*boxRatio;sx0=(shirtImg.naturalWidth-sw)/2;
+      }else{
+        sh=sw/boxRatio;sy0=(shirtImg.naturalHeight-sh)/2;
+      }
+      ctx.drawImage(shirtImg,sx0,sy0,sw,sh,mx*sx,my*sy,mw*sx,mh*sy);
+    }
 
     // Clip the exported artwork strictly to the 40×40 cm print area.
     // Objects may be moved/scaled freely in the editor, but pixels outside this area
@@ -398,12 +395,11 @@ async function exportSvg(){
       ctx.drawImage(stringsImg,270*sx,215*sy,160*sx,225*sy);
     }
 
-    const png=await canvasToPng(canvas);
     const filename=`monoprint-${state.product}-mockup-${state.shirt==='#171717'?'black':'white'}-${state.side}.png`;
-    await shareOrDownloadPng(png,filename);
+    downloadCanvasPng(canvas,filename);
   }catch(err){
     console.error(err);
-    alert('Не удалось сохранить мокап. Обновите страницу и попробуйте ещё раз.');
+    alert('Не удалось сохранить мокап: '+(err && err.message ? err.message : err));
   }finally{
     btn.disabled=false;btn.textContent=oldText;
   }
