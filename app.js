@@ -441,5 +441,23 @@ async function exportSvg(){
     btn.disabled=false;btn.textContent=oldText;
   }
 }
+
+const editPanelHome={
+  parent:editPanel.parentNode,
+  next:editPanel.nextSibling
+};
+function placeEditPanelForViewport(){
+  const slot=$('#mobileEditPanelSlot');
+  if(!slot)return;
+  const mobile=window.matchMedia('(max-width: 760px)').matches;
+  if(mobile){
+    if(editPanel.parentNode!==slot) slot.appendChild(editPanel);
+  }else if(editPanel.parentNode!==editPanelHome.parent){
+    editPanelHome.parent.insertBefore(editPanel,editPanelHome.next);
+  }
+}
+window.addEventListener('resize',placeEditPanelForViewport);
+placeEditPanelForViewport();
+
 $('#downloadBtn').onclick=exportSvg;
 refresh();
